@@ -87,9 +87,9 @@ LCW.world = (() => {
     };
 
     // ---------- Lights ----------
-    world.hemi = new THREE.HemisphereLight(0xfff8ec, 0xb09a80, 1.05);
+    world.hemi = new THREE.HemisphereLight(0xfff8ec, 0xb09a80, 0.72);
     scene.add(world.hemi);
-    const sun = new THREE.DirectionalLight(0xfff1d6, 0.7);
+    const sun = new THREE.DirectionalLight(0xfff1d6, 0.5);
     sun.position.set(18, 45, 25);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -131,7 +131,7 @@ LCW.world = (() => {
     // ---------- Floor + rug ----------
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(ROOM.maxX - ROOM.minX, ROOM.maxZ - ROOM.minZ),
-      new THREE.MeshToonMaterial({ map: floorTexture() }),
+      new THREE.MeshLambertMaterial({ map: floorTexture() }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
