@@ -175,7 +175,7 @@
         ? 'The librarian has had enough. You were escorted out of the library. The cat stays.'
         : `The exam started and your assignment is only ${Math.floor(game.progress)}% done. The cat sat on your notes.`;
     ui.$('end-score').textContent = score;
-    ui.$('end-best').textContent = isBest ? '🏆 New best score!' : `Best: ${best}`;
+    ui.$('end-best').textContent = isBest ? '🏆 New best score!' : (best ? `Best: ${best}` : '');
     ui.$('end').classList.remove('hidden');
     won ? audio.win() : audio.lose();
   }
@@ -209,6 +209,7 @@
   }
 
   function updateNoise(dt) {
+    if (game.noise >= 100) { finish(false, 'noise'); return; }
     game.noise = Math.max(0, game.noise - 6 * dt);
     const lib = game.world.librarian;
     // Librarian glares at you when it gets loud.
@@ -225,7 +226,6 @@
       setTimeout(() => { lib.armL.rotation.x = lib.armR.rotation.x = 0; }, 900);
     }
     if (game.shhIndex > 0 && game.noise < SHH_LEVELS[game.shhIndex - 1] - 20) game.shhIndex--;
-    if (game.noise >= 100) finish(false, 'noise');
   }
 
   function updateHint() {

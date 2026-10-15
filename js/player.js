@@ -62,7 +62,7 @@ LCW.Player = class {
     this.pos.addScaledVector(this.vel, dt);
     LCW.world.collide(this.world, this.pos, this.radius);
 
-    if (this.running) game.addNoise(15 * dt);
+    if (this.running) game.addNoise(12 * dt);
 
     // Running through a coffee puddle = slip.
     if (this.running && this.slip <= 0) {
