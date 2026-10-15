@@ -57,9 +57,16 @@ LCW.models = (() => {
     return { group: g, body, head, armL, armR, legL, legR };
   }
 
-  // Orange tabby facing +z.
-  function cat(scale = 1) {
-    const ORANGE = 0xff8a3d, STRIPE = 0xc75a1a, CREAM = 0xffe2c2;
+  const CAT_COATS = {
+    tabby: { fur: 0xff8a3d, stripe: 0xc75a1a, cream: 0xffe2c2, eye: 0x9be564 },
+    black: { fur: 0x2e2a33, stripe: 0x17151a, cream: 0x4a4452, eye: 0xffd23f },
+    gray: { fur: 0xa9b0bb, stripe: 0x6f7784, cream: 0xffffff, eye: 0x5ec8ff },
+  };
+
+  // A cat facing +z. coat: 'tabby' | 'black' | 'gray'.
+  function cat(scale = 1, coat = 'tabby') {
+    const c = CAT_COATS[coat] || CAT_COATS.tabby;
+    const ORANGE = c.fur, STRIPE = c.stripe, CREAM = c.cream;
     const g = new THREE.Group();
     const inner = new THREE.Group(); // squash & stretch target
     g.add(inner);
@@ -90,7 +97,7 @@ LCW.models = (() => {
       ear.rotation.z = -s * 0.25;
       head.add(ear);
       ears.push(ear);
-      const eye = mesh(new THREE.SphereGeometry(0.09, 10, 8), 0x9be564);
+      const eye = mesh(new THREE.SphereGeometry(0.09, 10, 8), c.eye);
       eye.position.set(s * 0.15, 0.08, 0.34);
       head.add(eye);
       const pupil = mesh(new THREE.SphereGeometry(0.05, 8, 6), 0x111111);

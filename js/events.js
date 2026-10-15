@@ -9,7 +9,8 @@ LCW.events = (() => {
   let power = 0, wifi = 0;
 
   function reset(game) {
-    nextIn = 22;
+    nextIn = 18;
+    game.phone = null;
     kittenSpawned = false;
     power = wifi = 0;
     game.world.hemi.userData.base = game.world.hemi.intensity;
@@ -80,6 +81,10 @@ LCW.events = (() => {
 
     // Students fetch stolen snacks and replug computers eventually.
     for (const t of w.tables) {
+      if (t.cupReturn > 0) {
+        t.cupReturn -= dt;
+        if (t.cupReturn <= 0) t.cup.visible = true;
+      }
       if (t.snackReturn > 0) {
         t.snackReturn -= dt;
         if (t.snackReturn <= 0) {
@@ -142,20 +147,37 @@ LCW.events = (() => {
       }
     },
     coffee(game) {
+      // Two big puddles: one near a random table, one near YOUR seat.
+      const seat = game.world.mySeat;
+      const spots = [];
       const t = models.pick(game.world.tables.filter((t) => !t.isMine));
       const a = Math.random() * Math.PI * 2;
-      const x = t.x + Math.cos(a) * 4, z = t.z + Math.sin(a) * 4;
-      const puddle = new THREE.Mesh(
-        new THREE.CircleGeometry(1.8, 24),
-        new THREE.MeshLambertMaterial({ color: 0x6f4e37, transparent: true, opacity: 0.9 }),
-      );
-      puddle.rotation.x = -Math.PI / 2;
-      puddle.position.set(x, 0.03, z);
-      puddle.scale.set(1, 0.7, 1);
-      game.scene.add(puddle);
-      game.spills.push({ x, z, r: 1.6, mesh: puddle, life: 30 });
-      ui.banner('☕ COFFEE SPILL! Don\'t run!');
+      spots.push([t.x + Math.cos(a) * 4, t.z + Math.sin(a) * 4]);
+      const b = Math.random() * Math.PI * 2;
+      spots.push([seat.x + Math.cos(b) * (3.5 + Math.random() * 3), seat.z - 1 + Math.sin(b) * 3]);
+      spots.forEach(([x, z]) => {
+        const p = new THREE.Vector3(x, 0, z);
+        LCW.world.collide(game.world, p, 0.5);
+        if (Math.hypot(p.x - seat.x, p.z - seat.z) < 1.8) return; // never on the seat itself
+        const puddle = new THREE.Mesh(
+          new THREE.CircleGeometry(2.2, 24),
+          new THREE.MeshLambertMaterial({ color: 0x6f4e37, transparent: true, opacity: 0.92 }),
+        );
+        puddle.rotation.x = -Math.PI / 2;
+        puddle.position.set(p.x, 0.03, p.z);
+        puddle.scale.set(1, 0.75, 1);
+        game.scene.add(puddle);
+        game.spills.push({ x: p.x, z: p.z, r: 2, mesh: puddle, life: 40 });
+      });
+      ui.banner('☕ COFFEE SPILL! It\'s slippery!');
       if (t.students[0]) ui.bubble(t.students[0].model.group, 'oops ☕', { height: 2.8 });
+    },
+    phone(game) {
+      const candidates = game.world.students.filter((s) => s.state === 'sit');
+      const s = models.pick(candidates);
+      if (!s) return;
+      game.phone = { student: s, timer: 14, tick: 0 };
+      ui.banner('📱 A PHONE IS RINGING! Go silence it (E)');
     },
     wifi(game) {
       ui.banner('📶 WI-FI DOWN! Typing is slow');
@@ -179,10 +201,25 @@ LCW.events = (() => {
 
     nextIn -= dt;
     if (nextIn <= 0) {
-      nextIn = 18 + Math.random() * 10;
-      const pool = ['power', 'books', 'coffee', 'wifi'];
+      nextIn = 14 + Math.random() * 8;
+      const pool = ['power', 'books', 'coffee', 'coffee', 'wifi', 'phone', 'phone'];
       if (!kittenSpawned && game.elapsed > 75) pool.push('kitten', 'kitten');
       DISASTERS[models.pick(pool)](game);
+    }
+
+    // Ringing phone: loud until someone silences it.
+    if (game.phone) {
+      const ph = game.phone;
+      ph.timer -= dt;
+      ph.tick -= dt;
+      game.addNoise(5 * dt);
+      ph.student.stress = Math.min(1, ph.student.stress + 0.05 * dt);
+      if (ph.tick <= 0) {
+        ph.tick = 0.9;
+        ui.bubble(ph.student.model.group, '📱 RING RING', { cls: 'alert', height: 2.8, life: 0.8 });
+        if (game.live) audio.ring();
+      }
+      if (ph.timer <= 0) game.phone = null;
     }
 
     // Power flicker: lights dim and screens blink.

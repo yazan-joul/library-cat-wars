@@ -2,15 +2,22 @@
 (() => {
   const { ui, audio } = LCW;
   const EXAM_SECONDS = 180;
-  const TYPING_SECONDS = 150; // pure typing time needed for 100% at 1x focus
+  const TYPING_SECONDS = 110; // pure typing time needed for 100% at 1x focus
   const SHH_LEVELS = [45, 70, 88];
   const BEST_KEY = 'library-cat-wars-best';
   // Each round the cat gets bolder and the music faster.
   const ROUNDS = [
-    { at: 120, boost: 1.2, text: '😼 ROUND 2: The cat is getting bold!' },
-    { at: 60, boost: 1.4, text: '🔥 FINAL MINUTE! The cat has the zoomies' },
+    { at: 120, boost: 1.2, text: '😼 ROUND 2: Gingi joins the gang!', spawn: true },
+    { at: 60, boost: 1.4, text: '🔥 FINAL MINUTE! The cats have the zoomies' },
     { at: 30, boost: 1.6, text: '🚨 PANIC MODE! 30 SECONDS!' },
   ];
+  // The gang. pace = speed, greed = how much they love YOUR laptop, calm = seconds a treat buys.
+  const CATS = {
+    mitzi: { name: 'Mitzi', coat: 'tabby', pace: 1, greed: 1, calm: 6 },
+    shuki: { name: 'Shuki', coat: 'black', pace: 1.35, greed: 1.3, calm: 4 },
+    gingi: { name: 'Gingi', coat: 'gray', pace: 0.85, greed: 0.9, calm: 9, size: 1.25 },
+  };
+  const MACHINE_COOLDOWN = 25;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -80,6 +87,7 @@
     const target = aimPoint();
     LCW.world.collide(game.world, target, 0.3);
     game.items.throwTreat(p.pos.clone().setY(1.5), target);
+    game.addNoise(2);
     audio.pop();
   }
 
@@ -90,19 +98,32 @@
     const dir = aimPoint().sub(p.pos).setY(0);
     if (dir.lengthSq() < 0.01) dir.set(Math.sin(p.facing), 0, Math.cos(p.facing));
     game.items.rollYarn(p.pos.clone().add(dir.clone().setLength(0.9)), dir);
+    game.addNoise(3);
     audio.pop();
   }
 
-  // E: pet a calm cat > refill at snack machine > replug a dark monitor.
+  // E: pet a calm cat > silence a phone > refill at snack machine > replug a dark monitor.
   function interact() {
     const p = game.player;
     for (const cat of game.cats) {
       if (cat.distanceTo(p.pos) < 2.6) { cat.pet(game); return; }
     }
+    if (nearPhone()) {
+      ui.bubble(game.phone.student.model.group, '🤫 sorry!!', { cls: 'good', height: 2.8 });
+      game.addPoints(75, p.model.group, 'Silenced!');
+      game.phone = null;
+      return;
+    }
     if (p.pos.distanceTo(game.world.snackMachine) < 3) {
-      p.treats = 5;
-      p.yarn = 3;
-      ui.bubble(p.model.group, 'Restocked! 🐟🧶', { cls: 'good' });
+      if (game.machineCooldown > 0) {
+        ui.bubble(p.model.group, `🥨 Restocking... ${Math.ceil(game.machineCooldown)}s`, { cls: 'bad' });
+        return;
+      }
+      // Partial refill only, and the machine needs time to restock.
+      p.treats = Math.min(4, p.treats + 3);
+      p.yarn = Math.min(2, p.yarn + 1);
+      game.machineCooldown = MACHINE_COOLDOWN;
+      ui.bubble(p.model.group, '+🐟🐟🐟 +🧶', { cls: 'good' });
       audio.eat();
       return;
     }
@@ -116,6 +137,12 @@
       ui.bubble(desk.student.model.group, 'Thank you!! 🙏', { cls: 'good' });
       audio.pop();
     }
+  }
+
+  function nearPhone() {
+    if (!game.phone) return false;
+    const s = game.phone.student;
+    return Math.hypot(game.player.pos.x - s.x, game.player.pos.z - s.z) < 3.4;
   }
 
   function nearbyUnpluggedDesk() {
@@ -155,6 +182,7 @@
       punch: 0,
       espresso: null,
       espressoNext: 15,
+      machineCooldown: 0,
       addNoise(n) { this.noise = Math.min(100, this.noise + n); },
       addPoints(n, anchor, label) {
         if (state !== 'playing') return;
@@ -166,7 +194,8 @@
     };
     game.player = new LCW.Player(scene, world);
     game.items = new LCW.Items(scene, world);
-    if (LCW.Cat) game.cats.push(new LCW.Cat(scene, world, { delay: 4 }));
+    game.cats.push(new LCW.Cat(scene, world, { ...CATS.mitzi, delay: 4 }));
+    game.cats.push(new LCW.Cat(scene, world, { ...CATS.shuki, delay: 22 }));
     if (LCW.events) LCW.events.reset(game);
     camera.position.copy(game.player.pos).add(CAM_OFFSET);
     camera.lookAt(game.player.pos);
@@ -273,6 +302,7 @@
     if (next && game.timeLeft <= next.at) {
       game.level++;
       game.catBoost = next.boost;
+      if (next.spawn) game.cats.push(new LCW.Cat(game.scene, game.world, { ...CATS.gingi, delay: 0 }));
       ui.banner(next.text, 3);
       audio.music.setLevel(game.level);
       audio.alarm();
@@ -339,7 +369,7 @@
 
   function updateNoise(dt) {
     if (game.noise >= 100) { finish(false, 'noise'); return; }
-    game.noise = Math.max(0, game.noise - 6 * dt);
+    game.noise = Math.max(0, game.noise - 4 * dt);
     const lib = game.world.librarian;
     // Librarian glares at you when it gets loud.
     const target = game.noise > 35
@@ -365,7 +395,8 @@
     else if (calmCat) text = 'E: pet the cat 💕 (it will leave happily)';
     else if (game.typingBlocked > 0 && p.atSeat()) text = '⚡ No power... wait for it';
     else if (p.atSeat() && !p.typing) text = 'Hold Space to type your assignment';
-    else if (p.pos.distanceTo(game.world.snackMachine) < 3) text = 'E: restock treats 🐟 and yarn 🧶';
+    else if (nearPhone()) text = 'E: silence the ringing phone 📱';
+    else if (p.pos.distanceTo(game.world.snackMachine) < 3) text = game.machineCooldown > 0 ? `🥨 Machine restocking... ${Math.ceil(game.machineCooldown)}s` : 'E: restock treats 🐟 and yarn 🧶';
     else if (nearbyUnpluggedDesk()) text = 'E: plug the computer back in';
     else if (!p.atSeat() && game.elapsed > 3 && game.elapsed < 12) text = 'Your seat has the glowing yellow ring';
     ui.hint(text);
@@ -388,6 +419,7 @@
     game.elapsed += dt;
     game.timeLeft -= dt;
     game.typingBlocked -= dt;
+    game.machineCooldown -= dt;
     game.player.update(dt, input, game);
     game.items.update(dt);
     game.cats.forEach((c) => c.update(dt, game));

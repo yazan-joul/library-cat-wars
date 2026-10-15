@@ -23,8 +23,9 @@ LCW.Player = class {
     this.vel = new THREE.Vector3();
     this.facing = Math.PI;
     this.radius = 0.55;
-    this.treats = 5;
-    this.yarn = 3;
+    this.treats = 3;
+    this.yarn = 2;
+    this.slipImmune = 0;
     this.typing = false;
     this.running = false;
     this.moving = false;
@@ -64,15 +65,21 @@ LCW.Player = class {
 
     if (this.running) game.addNoise(12 * dt);
 
-    // Running through a coffee puddle = slip.
-    if (this.running && this.slip <= 0) {
+    // Any step into a coffee puddle = slip, crash, and a treat flies out of your pocket.
+    this.slipImmune -= dt;
+    if (this.moving && this.slip <= 0 && this.slipImmune <= 0) {
       for (const s of game.spills) {
         if (Math.hypot(this.pos.x - s.x, this.pos.z - s.z) < s.r) {
-          this.slip = 1.1;
-          this.vel.multiplyScalar(1.6);
-          game.addNoise(12);
+          this.slip = this.running ? 1.3 : 0.9;
+          this.slipImmune = this.slip + 0.8;
+          this.vel.multiplyScalar(this.running ? 1.7 : 2.2);
+          game.addNoise(this.running ? 14 : 10);
           game.shake = 0.3;
-          LCW.ui.bubble(this.model.group, 'WHOAAA!', { cls: 'bad' });
+          LCW.ui.bubble(this.model.group, LCW.models.pick(['WHOAAA!', 'AAAH!', '*SPLAT*']), { cls: 'bad' });
+          if (this.treats > 0) {
+            this.treats--;
+            LCW.ui.bubble(this.model.group, '🐟 dropped!', { cls: 'bad', height: 3.6, dx: 1.5 });
+          }
           LCW.audio.crash();
           break;
         }

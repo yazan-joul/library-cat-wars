@@ -102,7 +102,11 @@ LCW.ui = (() => {
   // Edge-of-screen arrow pointing at the cat when it is off camera.
   const arrow = $('cat-arrow');
   function updateCatArrow(game, camera, playing) {
-    const cat = playing && game.cats.find((c) => c.state !== 'outside' && !c.kitten);
+    // Point at whichever cat is raiding your laptop, else the nearest cat.
+    const inside = playing ? game.cats.filter((c) => c.state !== 'outside') : [];
+    const p = game.player.pos;
+    const cat = inside.find((c) => c.mischief && c.mischief.type === 'mine')
+      || inside.sort((a, b) => a.distanceTo(p) - b.distanceTo(p))[0];
     if (!cat) { arrow.classList.add('hidden'); return; }
     cat.model.group.getWorldPosition(tmp);
     tmp.project(camera);

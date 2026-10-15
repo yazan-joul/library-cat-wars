@@ -138,6 +138,7 @@ LCW.audio = (() => {
     zap() { tone(1500, 100, 0.3, 'sawtooth', 0.35); },
     alarm() { [0, 0.16, 0.32].forEach((d) => tone(880, 660, 0.13, 'square', 0.35, d)); },
     powerup() { [523, 784, 1046, 1568].forEach((f, i) => tone(f, f * 1.02, 0.1, 'triangle', 0.45, i * 0.06)); },
+    ring() { [0, 0.1, 0.2, 0.3].forEach((d, i) => tone(i % 2 ? 1320 : 1760, i % 2 ? 1320 : 1760, 0.08, 'square', 0.22, d)); },
     ding() { tone(1046, 1568, 0.15, 'triangle', 0.35); },
     win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.25, 'square', 0.3, i * 0.13)); },
     lose() { [392, 330, 262, 196].forEach((f, i) => tone(f, f * 0.97, 0.3, 'triangle', 0.5, i * 0.18)); },

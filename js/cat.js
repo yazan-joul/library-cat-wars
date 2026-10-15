@@ -1,4 +1,4 @@
-// The Jerusalem campus cat: wanders, picks mischief, gets lured by treats/yarn, flees from noise.
+// The Jerusalem campus cats: wander, pick mischief, get lured by treats/yarn, flee from noise.
 window.LCW = window.LCW || {};
 
 (() => {
@@ -7,7 +7,7 @@ window.LCW = window.LCW || {};
   const MASH = ['asdfghjkl', 'jjjjjjjjjjj', ';;;;;;;;;', 'gggggg', '?!?!?!', 'DELETE', 'ctrl+z?!', '00000000'];
   const DESK_CRIES = ['HEY!', 'My code!!', 'NOOO', 'Not now!!', 'שלום חתול...', 'why me'];
   const SNACK_CRIES = ['MY SANDWICH!', 'My lunch!!', 'Come back!!', 'That was hummus!'];
-  const DURATION = { mine: 6, keyboard: 5, unplug: 1.2, snack: 0.5, books: 8 };
+  const DURATION = { mine: 6, keyboard: 5, unplug: 1.2, snack: 0.5, books: 8, knock: 0.8 };
   const SPEED = { walk: 4.5, rush: 6, flee: 12, play: 10 };
 
   LCW.Cat = class {
@@ -16,7 +16,14 @@ window.LCW = window.LCW || {};
       this.world = world;
       this.kitten = !!opts.kitten;
       this.life = opts.life ?? Infinity;
-      this.model = models.cat(this.kitten ? 0.6 : 1);
+      this.name = opts.name || 'Kitten';
+      // Personality: pace = walking speed, greed = how much it loves YOUR laptop, calm = seconds a treat buys.
+      this.pace = opts.pace ?? 1;
+      this.greed = opts.greed ?? 1;
+      this.calmTime = opts.calm ?? (this.kitten ? 4 : 6);
+      this.hunger = 0;
+      this.yowlCooldown = 0;
+      this.model = models.cat(this.kitten ? 0.6 : (opts.size ?? 1), opts.coat);
       this.model.group.visible = false;
       scene.add(this.model.group);
       this.pos = new V3(0, 0, 27);
@@ -55,7 +62,7 @@ window.LCW = window.LCW || {};
     moveTo(target, speed, dt) {
       const dx = target.x - this.pos.x, dz = target.z - this.pos.z;
       const d = Math.hypot(dx, dz);
-      speed *= this.boost || 1;
+      speed *= (this.boost || 1) * this.pace;
       this.speed = speed;
       if (d < 0.35) { this.speed = 0; return true; }
       this.heading = Math.atan2(dx, dz);
@@ -76,9 +83,9 @@ window.LCW = window.LCW || {};
       const busy = (key) => game.cats.some((c) => c !== this && c.mischief && c.mischief.key === key);
       const options = [];
       if (!this.kitten && !busy('mine')) {
-        const mine = { type: 'mine', key: 'mine', w: 2 + game.elapsed / 40, pos: w.mySeat.laptopPos.clone() };
+        const mine = { type: 'mine', key: 'mine', w: (2 + game.elapsed / 30) * this.greed, pos: w.mySeat.laptopPos.clone() };
         // It always comes back for YOUR laptop eventually, sooner in later rounds.
-        if (this.sinceMine > 18 / this.boost) return this.goFor(mine, game);
+        if (this.sinceMine > 18 / (this.boost * this.greed)) return this.goFor(mine, game);
         options.push(mine);
       }
       w.desks.forEach((d, i) => {
@@ -89,6 +96,9 @@ window.LCW = window.LCW || {};
       w.tables.forEach((t, i) => {
         if (t.snack && !t.snackTaken && !busy('snack' + i)) {
           options.push({ type: 'snack', key: 'snack' + i, w: 0.8, pos: new V3(t.snack.position.x, 0, t.snack.position.z), table: t });
+        }
+        if (t.cup.visible && !busy('cup' + i)) {
+          options.push({ type: 'knock', key: 'cup' + i, w: 0.7, pos: new V3(t.cup.position.x, 0, t.cup.position.z), table: t });
         }
         if (!t.isMine && !this.kitten && !busy('books' + i)) {
           options.push({ type: 'books', key: 'books' + i, w: 0.6, pos: t.booksPos.clone(), table: t });
@@ -137,6 +147,26 @@ window.LCW = window.LCW || {};
         if (t.students[0]) ui.bubble(t.students[0].model.group, models.pick(SNACK_CRIES), { cls: 'bad', height: 2.8, life: 2 });
         audio.meow(1.3);
         this.flee(new V3(t.x, 0, t.z), game, false);
+      } else if (m.type === 'knock') {
+        // *stares at you* ... *pushes cup off the table*
+        const t = m.table;
+        t.cup.visible = false;
+        t.cupReturn = 15;
+        const cup = t.cup.clone();
+        cup.visible = true;
+        game.scene.add(cup);
+        game.debris.push({
+          mesh: cup,
+          vel: new V3(Math.sin(this.heading) * 5, 3, Math.cos(this.heading) * 5),
+          spin: new V3(12, 4, 9),
+          life: 12,
+          resting: false,
+        });
+        ui.bubble(this.pos.clone(), '💥 *knocks cup off*', { cls: 'bad', height: 2.4 });
+        t.students.forEach((s) => (s.stress += 0.3));
+        game.addNoise(7);
+        game.shake = 0.25;
+        audio.crash();
       } else if (m.type === 'books') {
         m.table.catNap = true;
         this.extraY = 0.5;
@@ -149,7 +179,8 @@ window.LCW = window.LCW || {};
       this.tick -= dt;
       if (m.type === 'mine') {
         this.onMyLaptop = true;
-        game.progress = Math.max(0, game.progress - 1.5 * dt);
+        game.progress = Math.max(0, game.progress - 2 * dt);
+        game.addNoise(2.5 * dt); // keyboard mashing is loud
         if (this.tick <= 0) {
           this.tick = 0.45;
           ui.bubble(this.world.mySeat.laptopPos, models.pick(MASH), { cls: 'type', height: 2, life: 0.9, rise: 2, dx: (Math.random() - 0.5) * 3 });
@@ -277,6 +308,15 @@ window.LCW = window.LCW || {};
       this.knockCooldown -= dt;
       this.boost = game.catBoost || 1;
       this.sinceMine = (this.sinceMine || 0) + dt;
+      // Hungry cats yowl. Loudly. In a library.
+      this.yowlCooldown -= dt;
+      if (['wander', 'goto', 'mischief'].includes(this.state)) this.hunger += dt;
+      if (game.live && !this.kitten && this.hunger > 30 && this.yowlCooldown <= 0) {
+        this.yowlCooldown = 9;
+        this.say('MEEOOOOW!! 🍽️', 'bad', 1.8);
+        game.addNoise(6);
+        audio.meow(0.75);
+      }
       if (this.kitten && this.state !== 'leave' && this.state !== 'outside') {
         this.life -= dt;
         if (this.life <= 0) { this.say('👋 mew'); this.leave(); }
@@ -289,8 +329,8 @@ window.LCW = window.LCW || {};
             this.pos.set(0, 0, 27);
             this.setState('enter');
             this.goal = new V3((Math.random() - 0.5) * 10, 0, 14);
-            this.say(this.returns ? '😼 I\'m back' : 'Mrrrow?', '', 1.8);
-            if (game.player && this.returns) ui.banner('😼 The cat is back!', 2);
+            this.say(this.returns ? `😼 ${this.name} is back` : `${this.name}: Mrrrow?`, '', 1.8);
+            if (game.live && this.returns) ui.banner(`😼 ${this.name} is back!`, 2);
             audio.meow();
           }
           break;
@@ -336,7 +376,7 @@ window.LCW = window.LCW || {};
         case 'lured':
           if (!this.lure || this.lure.eaten || !game.items.treats.includes(this.lure)) { this.setState('wander'); break; }
           if (this.moveTo(this.lure.mesh.position, SPEED.rush, dt)) {
-            this.setState('eat', 2);
+            this.setState('eat', 1.5);
             audio.eat();
           }
           break;
@@ -344,10 +384,12 @@ window.LCW = window.LCW || {};
           if (this.timer <= 0) {
             if (this.lure) this.lure.eaten = true;
             this.lure = null;
+            this.hunger = 0;
+            this.sinceMine = 0; // a full belly buys you time
             game.stats.lures++;
             game.addPoints(100, this.model.group, 'Lured!');
             this.say('😻 nom', 'good');
-            this.setState('calm', this.kitten ? 5 : 8);
+            this.setState('calm', this.calmTime);
           }
           break;
         case 'play': {
@@ -357,6 +399,7 @@ window.LCW = window.LCW || {};
           if (caught && y.vel.length() < 0.5 && !this.batting) {
             this.batting = true;
             this.timer = 3;
+            this.sinceMine = 0;
             game.stats.lures++;
             game.addPoints(100, this.model.group, 'Yarn trap!');
             this.say('😸 *bats yarn*', 'good');
@@ -364,7 +407,7 @@ window.LCW = window.LCW || {};
           if (this.batting && this.timer <= 0) {
             this.batting = false;
             this.yarn = null;
-            this.setState('calm', 6);
+            this.setState('calm', this.calmTime * 0.7);
           } else if (!this.batting && this.timer <= 0) {
             this.setState('wander');
           }
@@ -384,7 +427,7 @@ window.LCW = window.LCW || {};
             else {
               this.model.group.visible = false;
               this.returns++;
-              this.setState('outside', 14);
+              this.setState('outside', 10);
             }
           }
           break;

@@ -278,6 +278,7 @@ LCW.world = (() => {
       const cup = M.mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 10), 0xffffff);
       cup.position.set(x - 0.7, TABLE_H + 0.22, z + 0.2);
       scene.add(cup);
+      t.cup = cup;
 
       const seats = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
       seats.forEach((a, si) => {
