@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library Cat Wars</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game"></div>
+  <div id="bubbles"></div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="meter">
+        <span class="label">📝 Assignment</span>
+        <div class="bar"><div id="progress-fill" class="fill progress"></div></div>
+        <span id="progress-text" class="value">0%</span>
+      </div>
+      <div class="timer"><span class="label">⏰ Exam in</span><span id="timer">3:00</span></div>
+      <div class="meter">
+        <span class="label">🤫 Noise</span>
+        <div class="bar"><div id="noise-fill" class="fill noise"></div></div>
+      </div>
+      <div class="meter">
+        <span class="label">😱 Chaos</span>
+        <div class="bar"><div id="chaos-fill" class="fill chaos"></div></div>
+      </div>
+    </div>
+    <div class="hud-bottom">
+      <div class="item"><span class="key">1</span> 🐟 Treats <b id="treats">5</b></div>
+      <div class="item"><span class="key">2</span> 🧶 Yarn <b id="yarn">3</b></div>
+      <div class="item"><span class="key">Space</span> Type at your seat</div>
+      <div class="item"><span class="key">E</span> Pet / refill / replug</div>
+      <div class="item"><span class="key">Shift</span> Run (loud!)</div>
+    </div>
+    <div id="banner"></div>
+    <div id="hint"></div>
+  </div>
+
+  <div id="start" class="screen">
+    <div class="card">
+      <h1>Library Cat Wars <span class="cat-emoji">🐈</span></h1>
+      <p class="he">תקופת מבחנים · Exam Season</p>
+      <p>Your exam is in <b>3 minutes</b> and your assignment is not done. A mischievous
+        Jerusalem campus cat has broken into the glass library. It walks on keyboards, steals snacks,
+        unplugs computers and naps on books.</p>
+      <p>Finish your assignment. Lure the cat away with treats and yarn.
+        <b>Keep it quiet</b> or the librarian will kick you out.</p>
+      <ul class="controls">
+        <li><b>WASD / Arrows</b> walk · <b>Shift</b> run (noisy)</li>
+        <li><b>Hold Space</b> at your glowing seat to type</li>
+        <li><b>1 / Left click</b> toss a treat · <b>2 / Right click</b> roll yarn</li>
+        <li><b>E</b> pet a calm cat · refill at 🥨 snack machine · replug dark monitors</li>
+      </ul>
+      <button id="start-btn">Start studying</button>
+      <p id="best" class="best"></p>
+    </div>
+  </div>
+
+  <div id="end" class="screen hidden">
+    <div class="card">
+      <h1 id="end-title">Submitted!</h1>
+      <p id="end-text"></p>
+      <p class="score">Score: <b id="end-score">0</b></p>
+      <p id="end-best" class="best"></p>
+      <button id="again-btn">Play again</button>
+    </div>
+  </div>
+
+  <script src="lib/three.min.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/cat.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
