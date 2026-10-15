@@ -183,6 +183,7 @@
     ui.banner('📝 Get to work! The exam starts in 3:00', 2.5);
     audio.music.setLevel(0);
     audio.music.start();
+    audio.start();
   }
 
   function finish(won, reason) {
