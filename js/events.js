@@ -54,7 +54,7 @@ LCW.events = (() => {
       } else if (s.state === 'chase') {
         // Flailing, loud, mostly useless chase.
         s.timer -= dt;
-        game.addNoise(10 * dt);
+        game.addNoise(5 * dt);
         if (cat && cat.state !== 'outside') moveStudent(s, cat.pos, 7.5, dt, game);
         m.armL.rotation.x = Math.sin(s.phase * 25) * 2.5;
         m.armR.rotation.x = -Math.sin(s.phase * 25) * 2.5;

@@ -55,6 +55,7 @@ window.LCW = window.LCW || {};
     moveTo(target, speed, dt) {
       const dx = target.x - this.pos.x, dz = target.z - this.pos.z;
       const d = Math.hypot(dx, dz);
+      speed *= this.boost || 1;
       this.speed = speed;
       if (d < 0.35) { this.speed = 0; return true; }
       this.heading = Math.atan2(dx, dz);
@@ -75,7 +76,10 @@ window.LCW = window.LCW || {};
       const busy = (key) => game.cats.some((c) => c !== this && c.mischief && c.mischief.key === key);
       const options = [];
       if (!this.kitten && !busy('mine')) {
-        options.push({ type: 'mine', key: 'mine', w: 4 + game.elapsed / 30, pos: w.mySeat.laptopPos.clone() });
+        const mine = { type: 'mine', key: 'mine', w: 2 + game.elapsed / 40, pos: w.mySeat.laptopPos.clone() };
+        // It always comes back for YOUR laptop eventually, sooner in later rounds.
+        if (this.sinceMine > 18 / this.boost) return this.goFor(mine, game);
+        options.push(mine);
       }
       w.desks.forEach((d, i) => {
         if (!d.plugged || busy('desk' + i)) return;
@@ -91,9 +95,18 @@ window.LCW = window.LCW || {};
         }
       });
       let r = Math.random() * options.reduce((s, o) => s + o.w, 0);
-      this.mischief = options.find((o) => (r -= o.w) <= 0) || options[0];
+      this.goFor(options.find((o) => (r -= o.w) <= 0) || options[0], game);
+    }
+
+    goFor(mischief, game) {
+      this.mischief = mischief;
       this.setState('goto');
-      if (Math.random() < 0.5) this.say(models.pick(['😼', '😈', '👀']));
+      if (mischief.type === 'mine') {
+        this.sinceMine = 0;
+        // Fair warning: big red alarm when it heads for YOUR laptop.
+        this.say('❗', 'alert', 1.8);
+        if (game.live) audio.alarm();
+      } else if (Math.random() < 0.5) this.say(models.pick(['😼', '😈', '👀']));
     }
 
     startMischief(game) {
@@ -102,6 +115,7 @@ window.LCW = window.LCW || {};
       if (m.type === 'mine') {
         this.say('😼 *sits on your keyboard*', '', 2);
         audio.meow(1.1);
+        game.punch = 0.8;
       } else if (m.type === 'keyboard') {
         ui.bubble(m.desk.student.model.group, models.pick(DESK_CRIES), { cls: 'bad', height: 2.8 });
       } else if (m.type === 'unplug') {
@@ -135,7 +149,7 @@ window.LCW = window.LCW || {};
       this.tick -= dt;
       if (m.type === 'mine') {
         this.onMyLaptop = true;
-        game.progress = Math.max(0, game.progress - 2.5 * dt);
+        game.progress = Math.max(0, game.progress - 1.5 * dt);
         if (this.tick <= 0) {
           this.tick = 0.45;
           ui.bubble(this.world.mySeat.laptopPos, models.pick(MASH), { cls: 'type', height: 2, life: 0.9, rise: 2, dx: (Math.random() - 0.5) * 3 });
@@ -197,6 +211,7 @@ window.LCW = window.LCW || {};
     pet(game) {
       if (this.isCalm()) {
         game.stats.pets++;
+        game.addPoints(200, this.model.group, 'Purrfect!');
         this.say('❤️ purrrr', 'good', 2);
         ui.bubble(this.model.group, '❤️', { cls: 'plain', height: 2.6, life: 1.2, rise: 2, dx: 1 });
         ui.bubble(this.model.group, '❤️', { cls: 'plain', height: 2.6, life: 1.2, rise: 2, dx: -1 });
@@ -260,6 +275,8 @@ window.LCW = window.LCW || {};
       this.timer -= dt;
       this.onMyLaptop = false;
       this.knockCooldown -= dt;
+      this.boost = game.catBoost || 1;
+      this.sinceMine = (this.sinceMine || 0) + dt;
       if (this.kitten && this.state !== 'leave' && this.state !== 'outside') {
         this.life -= dt;
         if (this.life <= 0) { this.say('👋 mew'); this.leave(); }
@@ -285,7 +302,7 @@ window.LCW = window.LCW || {};
           if (!this.goal) this.goal = this.randomPoint();
           if (this.moveTo(this.goal, SPEED.walk * 0.7, dt)) this.goal = null;
           if (this.cooldown <= 0 && this.timer <= 0) {
-            this.cooldown = Math.max(1, 3.5 - game.elapsed / 60 - this.returns * 0.5);
+            this.cooldown = Math.max(0.8, (3.5 - game.elapsed / 60 - this.returns * 0.5) / this.boost);
             this.chooseMischief(game);
           }
           break;
@@ -328,6 +345,7 @@ window.LCW = window.LCW || {};
             if (this.lure) this.lure.eaten = true;
             this.lure = null;
             game.stats.lures++;
+            game.addPoints(100, this.model.group, 'Lured!');
             this.say('😻 nom', 'good');
             this.setState('calm', this.kitten ? 5 : 8);
           }
@@ -340,6 +358,7 @@ window.LCW = window.LCW || {};
             this.batting = true;
             this.timer = 3;
             game.stats.lures++;
+            game.addPoints(100, this.model.group, 'Yarn trap!');
             this.say('😸 *bats yarn*', 'good');
           }
           if (this.batting && this.timer <= 0) {

@@ -19,6 +19,7 @@ books. You have 3 minutes to finish your assignment. Lure the cat away with trea
 | 1 / Left click | Toss a treat where you aim |
 | 2 / Right click | Roll a ball of yarn |
 | E | Pet a calm cat, restock at the snack machine, replug dark monitors |
+| M | Music on/off |
 
 ## How to win
 
@@ -29,6 +30,11 @@ books. You have 3 minutes to finish your assignment. Lure the cat away with trea
   librarian throws you out.
 - Random disasters: power flickers, book avalanches, coffee spills (don't run through them!),
   Wi-Fi outages and a sneaky kitten.
+- Typing without interruption builds a 🔥 focus streak (up to 1.6× speed). Grab ☕ espresso
+  when it appears on the floor for 10 seconds of double-speed typing.
+- It escalates: at 2:00 the cat gets bolder, at 1:00 it gets the zoomies, and the last 30 seconds
+  are PANIC MODE. The music speeds up each round. A red ❗ and an alarm warn you when the cat
+  heads for your laptop, and an arrow at the screen edge shows where it is when it's off camera.
 
 ## Tech
 

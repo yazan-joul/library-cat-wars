@@ -2,9 +2,15 @@
 (() => {
   const { ui, audio } = LCW;
   const EXAM_SECONDS = 180;
-  const TYPING_SECONDS = 80; // pure typing time needed for 100%
+  const TYPING_SECONDS = 150; // pure typing time needed for 100% at 1x focus
   const SHH_LEVELS = [45, 70, 88];
   const BEST_KEY = 'library-cat-wars-best';
+  // Each round the cat gets bolder and the music faster.
+  const ROUNDS = [
+    { at: 120, boost: 1.2, text: '😼 ROUND 2: The cat is getting bold!' },
+    { at: 60, boost: 1.4, text: '🔥 FINAL MINUTE! The cat has the zoomies' },
+    { at: 30, boost: 1.6, text: '🚨 PANIC MODE! 30 SECONDS!' },
+  ];
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -32,6 +38,10 @@
   };
   window.addEventListener('keydown', (e) => {
     if (KEYMAP[e.code]) { input[KEYMAP[e.code]] = true; e.preventDefault(); }
+    if (e.code === 'KeyM' && !e.repeat) {
+      const muted = audio.music.toggleMute();
+      if (state === 'playing') ui.banner(muted ? '🔇 Music off' : '🎵 Music on', 1);
+    }
     if (state !== 'playing' || e.repeat) return;
     if (e.code === 'Digit1') throwTreat();
     if (e.code === 'Digit2') rollYarn();
@@ -102,6 +112,7 @@
       desk.screenMat.color.setHex(desk.screenMat.userData.base);
       desk.student.stress = Math.max(0, desk.student.stress - 0.5);
       game.stats.helped++;
+      game.addPoints(75, desk.student.model.group, 'Hero!');
       ui.bubble(desk.student.model.group, 'Thank you!! 🙏', { cls: 'good' });
       audio.pop();
     }
@@ -134,7 +145,24 @@
       shhIndex: 0,
       typeTick: 0,
       stats: { lures: 0, pets: 0, helped: 0 },
+      score: 0,
+      level: 0,
+      catBoost: 1,
+      focus: 0,
+      focusMult: 1,
+      focusGrace: 0,
+      buff: 0,
+      punch: 0,
+      espresso: null,
+      espressoNext: 15,
       addNoise(n) { this.noise = Math.min(100, this.noise + n); },
+      addPoints(n, anchor, label) {
+        if (state !== 'playing') return;
+        this.score += n;
+        ui.bubble(anchor, `+${n} ${label}`, { cls: 'points', height: 3.4, life: 1.4, rise: 1.5 });
+        ui.bumpScore();
+        audio.ding();
+      },
     };
     game.player = new LCW.Player(scene, world);
     game.items = new LCW.Items(scene, world);
@@ -148,17 +176,23 @@
     audio.init();
     newGame();
     state = 'playing';
+    game.live = true;
     ui.$('start').classList.add('hidden');
     ui.$('end').classList.add('hidden');
     ui.$('hud').classList.remove('hidden');
     ui.banner('📝 Get to work! The exam starts in 3:00', 2.5);
+    audio.music.setLevel(0);
+    audio.music.start();
   }
 
   function finish(won, reason) {
     state = 'over';
+    game.live = false;
     ui.hint('');
+    audio.music.stop();
+    game.level = 0;
     const avgChaos = game.chaosSum / Math.max(1, game.elapsed);
-    let score = game.progress * 10 + game.stats.lures * 60 + game.stats.pets * 150 + game.stats.helped * 50;
+    let score = game.score + game.progress * 10;
     if (won) score += 1000 + game.timeLeft * 15;
     score = Math.max(0, Math.round(score - avgChaos * 4));
     let best = 0;
@@ -177,7 +211,7 @@
     ui.$('end-score').textContent = score;
     ui.$('end-best').textContent = isBest ? '🏆 New best score!' : (best ? `Best: ${best}` : '');
     ui.$('end').classList.remove('hidden');
-    won ? audio.win() : audio.lose();
+    if (won) { audio.win(); ui.confetti(); } else audio.lose();
   }
 
   ui.$('start-btn').addEventListener('click', start);
@@ -192,11 +226,14 @@
     const p = game.player;
     const seat = game.world.mySeat;
     const catOnLaptop = game.cats.some((c) => c.onMyLaptop);
-    if (p.typing && !catOnLaptop && game.typingBlocked <= 0) {
-      game.progress = Math.min(100, game.progress + (100 / TYPING_SECONDS) * game.typingMult * dt);
+    const canType = p.typing && !catOnLaptop && game.typingBlocked <= 0;
+    updateFocus(dt, canType, catOnLaptop);
+    if (canType) {
+      const rate = game.typingMult * game.focusMult * (game.buff > 0 ? 2 : 1);
+      game.progress = Math.min(100, game.progress + (100 / TYPING_SECONDS) * rate * dt);
       game.typeTick -= dt;
       if (game.typeTick <= 0) {
-        game.typeTick = 0.18;
+        game.typeTick = game.focusMult > 1.4 || game.buff > 0 ? 0.1 : 0.18;
         const words = ['lorem', 'ipsum', 'Q.E.D.', 'thus', '∴', 'ref[3]', 'f(x)', 'בס"ד', 'TODO', 'proof'];
         ui.bubble(seat.laptopPos, LCW.models.pick(words), { cls: 'type', height: 1.8, life: 0.8, rise: 2, dx: (Math.random() - 0.5) * 3 });
         audio.type();
@@ -206,6 +243,97 @@
     const ring = game.world.seatRing;
     ring.scale.setScalar(1 + Math.sin(game.elapsed * 4) * 0.12);
     ring.material.color.setHex(p.typing ? 0x5cc96b : 0xffd23f);
+  }
+
+  // Uninterrupted typing builds a focus streak: up to 1.6x speed after 12s.
+  function updateFocus(dt, canType, catOnLaptop) {
+    const before = game.focusMult;
+    if (canType) {
+      game.focus += dt;
+      game.focusGrace = 0.4;
+    } else {
+      game.focusGrace -= dt;
+      if (game.focusGrace <= 0 || catOnLaptop) {
+        if (game.focus > 3 && catOnLaptop) ui.bubble(game.player.model.group, '💔 focus lost', { cls: 'bad', height: 3.4 });
+        game.focus = 0;
+      }
+    }
+    game.focusMult = 1 + 0.6 * Math.min(1, game.focus / 12);
+    const g = game.player.model.group;
+    if (before < 1.3 && game.focusMult >= 1.3) { game.addPoints(50, g, 'FOCUS x1.3'); }
+    if (before < 1.6 && game.focusMult >= 1.6) {
+      game.addPoints(150, g, '🔥 FLOW STATE x1.6');
+      audio.powerup();
+    }
+  }
+
+  function updateRounds(dt) {
+    const next = ROUNDS[game.level];
+    if (next && game.timeLeft <= next.at) {
+      game.level++;
+      game.catBoost = next.boost;
+      ui.banner(next.text, 3);
+      audio.music.setLevel(game.level);
+      audio.alarm();
+      game.shake = 0.4;
+    }
+    if (game.punch > 0) game.punch -= dt;
+  }
+
+  // Espresso power-up: appears on the floor now and then; grab it for a typing rush.
+  function updateEspresso(dt) {
+    const p = game.player;
+    if (game.buff > 0) game.buff -= dt;
+    if (!game.espresso) {
+      game.espressoNext -= dt;
+      if (game.espressoNext <= 0) spawnEspresso();
+      return;
+    }
+    const e = game.espresso;
+    e.life -= dt;
+    e.mesh.rotation.y += dt * 2;
+    e.mesh.position.y = 0.3 + Math.abs(Math.sin(game.elapsed * 4)) * 0.4;
+    e.ring.scale.setScalar(1 + Math.sin(game.elapsed * 8) * 0.15);
+    e.ring.material.opacity = e.life < 3 ? (Math.sin(game.elapsed * 20) > 0 ? 0.9 : 0.2) : 0.8;
+    if (Math.hypot(p.pos.x - e.x, p.pos.z - e.z) < 1.3) {
+      game.buff = 10;
+      game.addPoints(25, p.model.group, '☕ ESPRESSO!');
+      ui.banner('☕ ESPRESSO RUSH! 2x typing for 10s', 2);
+      audio.powerup();
+      removeEspresso();
+    } else if (e.life <= 0) {
+      removeEspresso();
+    }
+  }
+
+  function spawnEspresso() {
+    const R = game.world.ROOM;
+    const pos = new THREE.Vector3(R.minX + 4 + Math.random() * (R.maxX - R.minX - 8), 0, R.minZ + 4 + Math.random() * (R.maxZ - R.minZ - 7));
+    LCW.world.collide(game.world, pos, 1.2);
+    const mesh = new THREE.Group();
+    const M = LCW.models;
+    const cup = M.mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.6, 14), 0xffffff);
+    const coffee = M.mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.05, 14), 0x6f4e37);
+    coffee.position.y = 0.28;
+    const handle = M.mesh(new THREE.TorusGeometry(0.16, 0.05, 6, 12), 0xffffff);
+    handle.position.x = 0.42;
+    mesh.add(cup, coffee, handle);
+    mesh.position.set(pos.x, 0.3, pos.z);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.8, 1.05, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.8 }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(pos.x, 0.04, pos.z);
+    game.scene.add(mesh, ring);
+    game.espresso = { mesh, ring, x: pos.x, z: pos.z, life: 15 };
+    ui.bubble(mesh, '☕ ESPRESSO!', { cls: 'big', height: 1.5, life: 2 });
+  }
+
+  function removeEspresso() {
+    game.scene.remove(game.espresso.mesh, game.espresso.ring);
+    game.espresso = null;
+    game.espressoNext = 18 + Math.random() * 12;
   }
 
   function updateNoise(dt) {
@@ -243,14 +371,16 @@
   }
 
   function updateCamera(dt) {
-    const target = game.player.pos.clone().add(CAM_OFFSET);
+    // Camera "punch": zooms in briefly when the cat lands on your laptop.
+    const zoom = game.punch > 0 ? 0.8 : 1;
+    const target = game.player.pos.clone().addScaledVector(CAM_OFFSET, zoom);
     camera.position.lerp(target, Math.min(1, dt * 4));
     if (game.shake > 0) {
       game.shake -= dt;
       camera.position.x += (Math.random() - 0.5) * 0.6;
       camera.position.y += (Math.random() - 0.5) * 0.6;
     }
-    camera.lookAt(camera.position.x, 0, camera.position.z - CAM_OFFSET.z);
+    camera.lookAt(camera.position.x, 0, camera.position.z - CAM_OFFSET.z * (camera.position.y / CAM_OFFSET.y));
   }
 
   function tick(dt) {
@@ -263,6 +393,8 @@
     game.cats = game.cats.filter((c) => !c.gone);
     if (LCW.events) LCW.events.update(dt, game);
     game.chaosSum += game.chaos * dt;
+    updateRounds(dt);
+    updateEspresso(dt);
     updateTyping(dt);
     updateNoise(dt);
     updateHint();
@@ -286,6 +418,7 @@
     updateCamera(dt);
     ui.updateHud(game, dt);
     ui.updateBubbles(dt, camera);
+    ui.updateCatArrow(game, camera, state === 'playing');
     renderer.render(game.scene, camera);
   });
 

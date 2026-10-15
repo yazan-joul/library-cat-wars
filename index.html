@@ -8,7 +8,10 @@
 </head>
 <body>
   <div id="game"></div>
+  <div id="vignette"></div>
   <div id="bubbles"></div>
+  <div id="cat-arrow" class="hidden"><span class="arrow-head">➤</span><span class="arrow-cat">🐈</span></div>
+  <div id="confetti"></div>
 
   <div id="hud" class="hidden">
     <div class="hud-top">
@@ -16,8 +19,10 @@
         <span class="label">📝 Assignment</span>
         <div class="bar"><div id="progress-fill" class="fill progress"></div></div>
         <span id="progress-text" class="value">0%</span>
+        <span id="focus" class="focus"></span>
       </div>
       <div class="timer"><span class="label">⏰ Exam in</span><span id="timer">3:00</span></div>
+      <div class="timer score-box"><span class="label">⭐</span><span id="score">0</span></div>
       <div class="meter">
         <span class="label">🤫 Noise</span>
         <div class="bar"><div id="noise-fill" class="fill noise"></div></div>
@@ -33,7 +38,9 @@
       <div class="item"><span class="key">Space</span> Type at your seat</div>
       <div class="item"><span class="key">E</span> Pet / refill / replug</div>
       <div class="item"><span class="key">Shift</span> Run (loud!)</div>
+      <div class="item"><span class="key">M</span> Music</div>
     </div>
+    <div id="buff" class="buff"></div>
     <div id="banner"></div>
     <div id="hint"></div>
   </div>
@@ -52,6 +59,8 @@
         <li><b>Hold Space</b> at your glowing seat to type</li>
         <li><b>1 / Left click</b> toss a treat · <b>2 / Right click</b> roll yarn</li>
         <li><b>E</b> pet a calm cat · refill at 🥨 snack machine · replug dark monitors</li>
+        <li>Keep typing without interruption to build a 🔥 <b>focus streak</b> (up to 1.6× speed)</li>
+        <li>Grab ☕ <b>espresso</b> on the floor for a typing rush. It gets wilder every minute!</li>
       </ul>
       <button id="start-btn">Start studying</button>
       <p id="best" class="best"></p>

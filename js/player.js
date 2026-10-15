@@ -53,7 +53,7 @@ LCW.Player = class {
       this.model.group.rotation.z = Math.sin(this.slip * 25) * 0.4;
     } else {
       this.model.group.rotation.z = 0;
-      const speed = this.running ? 11 : 6;
+      const speed = (this.running ? 11 : 6) * (game.buff > 0 ? 1.3 : 1);
       dir.normalize().multiplyScalar(speed);
       this.vel.lerp(dir, Math.min(1, dt * 12));
       if (this.moving) this.facing = Math.atan2(dir.x, dir.z);
