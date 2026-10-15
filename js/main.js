@@ -14,7 +14,7 @@
   document.getElementById('game').appendChild(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.5, 300);
-  const CAM_OFFSET = new THREE.Vector3(0, 21, 14);
+  const CAM_OFFSET = new THREE.Vector3(0, 27, 15);
   const raycaster = new THREE.Raycaster();
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const mouse = new THREE.Vector2(0, 0);
